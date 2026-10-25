@@ -5,10 +5,9 @@ const path = require('path');
 async function helpCommand(sock, chatId, message) {
     const helpMessage = `
 ╔═══════════════════╗
-   *🤖 ${settings.botName || 'KnightBot-MD'}*  
+   *🤖 ${settings.botName || 'BoluDevs Bot'}*  
    Version: *${settings.version || '3.0.0'}*
-   by ${settings.botOwner || 'Mr Unique Hacker'}
-   YT : ${global.ytch}
+   Owner: *${settings.botOwner || 'BoluDevs'}*
 ╚═══════════════════╝
 
 *Available Commands:*
@@ -124,6 +123,17 @@ async function helpCommand(sock, chatId, message) {
 ╚═══════════════════╝
 
 ╔═══════════════════╗
+👁️ *View Once & Deleted*:
+║ ➤ .vv (reply to view once)
+║ ➤ .viewonce on/off
+║ ➤ .gallery
+║ ➤ .gallery viewonce
+║ ➤ .gallery deleted
+║ ➤ .gallery <id>
+║ ➤ .deleted
+╚═══════════════════╝
+
+╔═══════════════════╗
 🤖 *AI Commands*:
 ║ ➤ .gpt <question>
 ║ ➤ .gemini <question>
@@ -220,9 +230,7 @@ async function helpCommand(sock, chatId, message) {
 ║ ➤ .sc
 ║ ➤ .script
 ║ ➤ .repo
-╚═══════════════════╝
-
-Join our channel for updates:`;
+╚═══════════════════╝`;
 
     try {
         const imagePath = path.join(__dirname, '../assets/bot_image.jpg');
@@ -236,11 +244,6 @@ Join our channel for updates:`;
                 contextInfo: {
                     forwardingScore: 1,
                     isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363161513685998@newsletter',
-                        newsletterName: 'KnightBot MD',
-                        serverMessageId: -1
-                    }
                 }
             },{ quoted: message });
         } else {
@@ -250,11 +253,6 @@ Join our channel for updates:`;
                 contextInfo: {
                     forwardingScore: 1,
                     isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363161513685998@newsletter',
-                        newsletterName: 'KnightBot MD by Mr Unique Hacker',
-                        serverMessageId: -1
-                    } 
                 }
             });
         }

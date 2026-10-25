@@ -3,6 +3,7 @@ const path = require('path');
 const { downloadMediaMessage } = require('@whiskeysockets/baileys');
 const webp = require('node-webpmux');
 const crypto = require('crypto');
+const settings = require('../settings');
 
 async function takeCommand(sock, chatId, message, args) {
     try {
@@ -14,7 +15,7 @@ async function takeCommand(sock, chatId, message, args) {
         }
 
         // Get the packname from args or use default
-        const packname = args.join(' ') || 'Knight Bot';
+        const packname = args.join(' ') || settings.packname;
 
         try {
             // Download the sticker

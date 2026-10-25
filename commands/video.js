@@ -1,5 +1,6 @@
 const axios = require('axios');
 const yts = require('yt-search');
+const settings = require('../settings');
 
 const AXIOS_DEFAULTS = {
     timeout: 60000,
@@ -151,7 +152,7 @@ async function videoCommand(sock, chatId, message) {
             video: { url: videoData.download || videoData.dl || videoData.url },
             mimetype: 'video/mp4',
             fileName: `${(videoData.title || videoTitle || 'video').replace(/[^\w\s-]/g, '')}.mp4`,
-            caption: `*${videoData.title || videoTitle || 'Video'}*\n\n> *_Downloaded by Knight Bot MD_*`
+            caption: `*${videoData.title || videoTitle || 'Video'}*\n\n> *_Downloaded by ${settings.botName}_*`
         }, { quoted: message });
 
 

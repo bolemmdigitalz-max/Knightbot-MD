@@ -102,7 +102,8 @@ const unbanCommand = require('./commands/unban');
 const emojimixCommand = require('./commands/emojimix');
 const { handlePromotionEvent } = require('./commands/promote');
 const { handleDemotionEvent } = require('./commands/demote');
-const viewOnceCommand = require('./commands/viewonce');
+const { captureViewOnce, viewonceCommand, viewonceToggleCommand } = require('./commands/viewonce');
+const { vaultCommand, deletedCommand } = require('./commands/vault');
 const clearSessionCommand = require('./commands/clearsession');
 const { autoStatusCommand, handleStatusUpdate } = require('./commands/autostatus');
 const { simpCommand } = require('./commands/simp');
@@ -146,19 +147,14 @@ const soraCommand = require('./commands/sora');
 // Global settings
 global.packname = settings.packname;
 global.author = settings.author;
-global.channelLink = "https://whatsapp.com/channel/0029Va90zAnIHphOuO8Msp3A";
-global.ytch = "Mr Unique Hacker";
+global.channelLink = ""; // set your own WhatsApp channel link here if you have one
+global.ytch = settings.botOwner;
 
 // Add this near the top of main.js with other global configurations
 const channelInfo = {
     contextInfo: {
         forwardingScore: 1,
         isForwarded: true,
-        forwardedNewsletterMessageInfo: {
-            newsletterJid: '120363161513685998@newsletter',
-            newsletterName: 'KnightBot MD',
-            serverMessageId: -1
-        }
     }
 };
 
@@ -178,6 +174,11 @@ async function handleMessages(sock, messageUpdate, printLog) {
             storeMessage(sock, message);
         }
 
+        // Auto-save view-once photos/videos to the gallery
+        if (message.message) {
+            await captureViewOnce(sock, message);
+        }
+
         // Handle message revocation
         if (message.message?.protocolMessage?.type === 0) {
             await handleMessageRevocation(sock, message);
@@ -195,19 +196,9 @@ async function handleMessages(sock, messageUpdate, printLog) {
             const buttonId = message.message.buttonsResponseMessage.selectedButtonId;
             const chatId = message.key.remoteJid;
 
-            if (buttonId === 'channel') {
-                await sock.sendMessage(chatId, {
-                    text: '📢 *Join our Channel:*\nhttps://whatsapp.com/channel/0029Va90zAnIHphOuO8Msp3A'
-                }, { quoted: message });
-                return;
-            } else if (buttonId === 'owner') {
+            if (buttonId === 'channel' || buttonId === 'owner' || buttonId === 'support') {
                 const ownerCommand = require('./commands/owner');
                 await ownerCommand(sock, chatId);
-                return;
-            } else if (buttonId === 'support') {
-                await sock.sendMessage(chatId, {
-                    text: `🔗 *Support*\n\nhttps://chat.whatsapp.com/GA4WrOFythU6g3BFVubYM7?mode=wwt`
-                }, { quoted: message });
                 return;
             }
         }
@@ -436,6 +427,46 @@ async function handleMessages(sock, messageUpdate, printLog) {
             case userMessage.startsWith('.tts'):
                 const text = userMessage.slice(4).trim();
                 await ttsCommand(sock, chatId, text, message);
+                break;
+            case userMessage === '.deleted' || userMessage.startsWith('.deleted ') || userMessage === '.dl':
+                {
+                    const isPrivileged = message.key.fromMe || senderIsOwnerOrSudo;
+                    let allowed = isPrivileged;
+                    if (!allowed && isGroup) {
+                        const st = await isAdmin(sock, chatId, senderId);
+                        allowed = st.isSenderAdmin;
+                    }
+                    if (!allowed) {
+                        await sock.sendMessage(chatId, { text: '❌ Only the bot owner or group admins can read deleted messages.', ...channelInfo }, { quoted: message });
+                        break;
+                    }
+                    await deletedCommand(sock, chatId, message, isPrivileged);
+                }
+                break;
+            case userMessage === '.gallery' || userMessage.startsWith('.gallery ') || userMessage === '.vault' || userMessage.startsWith('.vault ') || userMessage === '.saved':
+                {
+                    const isPrivileged = message.key.fromMe || senderIsOwnerOrSudo;
+                    let allowed = isPrivileged;
+                    if (!allowed && isGroup) {
+                        const st = await isAdmin(sock, chatId, senderId);
+                        allowed = st.isSenderAdmin;
+                    }
+                    if (!allowed) {
+                        await sock.sendMessage(chatId, { text: '❌ Only the bot owner or group admins can open the gallery.', ...channelInfo }, { quoted: message });
+                        break;
+                    }
+                    await vaultCommand(sock, chatId, message, isPrivileged);
+                }
+                break;
+            case userMessage === '.viewonce' || userMessage.startsWith('.viewonce '):
+                {
+                    if (!message.key.fromMe && !senderIsOwnerOrSudo) {
+                        await sock.sendMessage(chatId, { text: '❌ Only the bot owner can change the view-once saver.', ...channelInfo }, { quoted: message });
+                        break;
+                    }
+                    const voArgs = rawText.split(/\s+/).slice(1).join(' ');
+                    await viewonceToggleCommand(sock, chatId, message, voArgs);
+                }
                 break;
             case userMessage.startsWith('.delete') || userMessage.startsWith('.del'):
                 await deleteCommand(sock, chatId, message, senderId);
@@ -822,7 +853,7 @@ async function handleMessages(sock, messageUpdate, printLog) {
                 break;
 
             case userMessage === '.vv':
-                await viewOnceCommand(sock, chatId, message);
+                await viewonceCommand(sock, chatId, message);
                 break;
             case userMessage === '.clearsession' || userMessage === '.clearsesi':
                 await clearSessionCommand(sock, chatId, message);

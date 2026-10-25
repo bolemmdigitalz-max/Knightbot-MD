@@ -1,10 +1,11 @@
 /**
- * Knight Bot - A WhatsApp Bot
+ * BoluDevs Bot - A WhatsApp Bot
  * Autoread Command - Automatically read all messages
  */
 
 const fs = require('fs');
 const path = require('path');
+const settings = require('../settings');
 const isOwnerOrSudo = require('../lib/isOwner');
 
 // Path to store the configuration
@@ -30,11 +31,6 @@ async function autoreadCommand(sock, chatId, message) {
                 contextInfo: {
                     forwardingScore: 1,
                     isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363161513685998@newsletter',
-                        newsletterName: 'KnightBot MD',
-                        serverMessageId: -1
-                    }
                 }
             });
             return;
@@ -61,11 +57,6 @@ async function autoreadCommand(sock, chatId, message) {
                     contextInfo: {
                         forwardingScore: 1,
                         isForwarded: true,
-                        forwardedNewsletterMessageInfo: {
-                            newsletterJid: '120363161513685998@newsletter',
-                            newsletterName: 'KnightBot MD',
-                            serverMessageId: -1
-                        }
                     }
                 });
                 return;
@@ -84,11 +75,6 @@ async function autoreadCommand(sock, chatId, message) {
             contextInfo: {
                 forwardingScore: 1,
                 isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363161513685998@newsletter',
-                    newsletterName: 'KnightBot MD',
-                    serverMessageId: -1
-                }
             }
         });
         
@@ -99,11 +85,6 @@ async function autoreadCommand(sock, chatId, message) {
             contextInfo: {
                 forwardingScore: 1,
                 isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363161513685998@newsletter',
-                    newsletterName: 'KnightBot MD',
-                    serverMessageId: -1
-                }
             }
         });
     }
@@ -155,7 +136,7 @@ function isBotMentionedInMessage(message, botNumber) {
         }
         
         // Check for bot name mentions (optional, can be customized)
-        const botNames = [global.botname?.toLowerCase(), 'bot', 'knight', 'knight bot'];
+        const botNames = [global.botname?.toLowerCase(), 'bot', 'bolu', (settings.botName || '').toLowerCase()].filter(Boolean);
         const words = textContent.toLowerCase().split(/\s+/);
         if (botNames.some(name => words.includes(name))) {
             return true;

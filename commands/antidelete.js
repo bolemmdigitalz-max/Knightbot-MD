@@ -3,6 +3,8 @@ const path = require('path');
 const { tmpdir } = require('os');
 const { downloadContentFromMessage } = require('@whiskeysockets/baileys');
 const { writeFile } = require('fs/promises');
+const vault = require('../lib/vault');
+const { notifyOwners } = require('../lib/ownerTargets');
 
 const messageStore = new Map();
 const CONFIG_PATH = path.join(__dirname, '../data/antidelete.json');
@@ -85,9 +87,15 @@ async function handleAntideleteCommand(sock, chatId, message, match) {
 
     const config = loadAntideleteConfig();
 
-    if (!match) {
+    if (!match || match.toLowerCase() === 'status') {
         return sock.sendMessage(chatId, {
-            text: `*ANTIDELETE SETUP*\n\nCurrent Status: ${config.enabled ? '✅ Enabled' : '❌ Disabled'}\n\n*.antidelete on* - Enable\n*.antidelete off* - Disable`
+            text: `*🗑️ ANTIDELETE SETUP*\n\n` +
+                  `Current Status: ${config.enabled ? '✅ Enabled' : '❌ Disabled'}\n` +
+                  `Captured: *${vault.count('deleted')}* deleted item(s) in the gallery\n\n` +
+                  `*.antidelete on* - Enable\n` +
+                  `*.antidelete off* - Disable\n` +
+                  `*.deleted* - Read deleted messages\n` +
+                  `*.gallery deleted* - Browse deleted media`
         }, {quoted: message});
     }
 
@@ -177,26 +185,19 @@ async function storeMessage(sock, message) {
             timestamp: new Date().toISOString()
         });
 
-        // Anti-ViewOnce: forward immediately to owner if captured
-        if (isViewOnce && mediaType && fs.existsSync(mediaPath)) {
-            try {
-                const ownerNumber = sock.user.id.split(':')[0] + '@s.whatsapp.net';
-                const senderName = sender.split('@')[0];
-                const mediaOptions = {
-                    caption: `*Anti-ViewOnce ${mediaType}*
-From: @${senderName}`,
-                    mentions: [sender]
-                };
-                if (mediaType === 'image') {
-                    await sock.sendMessage(ownerNumber, { image: { url: mediaPath }, ...mediaOptions });
-                } else if (mediaType === 'video') {
-                    await sock.sendMessage(ownerNumber, { video: { url: mediaPath }, ...mediaOptions });
-                }
-                // Cleanup immediately for view-once forward
-                try { fs.unlinkSync(mediaPath); } catch {}
-            } catch (e) {
-                // ignore
-            }
+        // View-once media is handled by commands/viewonce.js, which saves it to
+        // the gallery independently of the anti-delete toggle. Drop the temp
+        // copy here so anti-delete does not report the same media twice.
+        if (isViewOnce) {
+            try { if (mediaPath && fs.existsSync(mediaPath)) fs.unlinkSync(mediaPath); } catch {}
+            messageStore.set(messageId, {
+                content: '',
+                mediaType: '',
+                mediaPath: '',
+                sender,
+                group: null,
+                timestamp: new Date().toISOString()
+            });
         }
 
     } catch (err) {
@@ -241,40 +242,74 @@ async function handleMessageRevocation(sock, revocationMessage) {
             text += `\n*💬 Deleted Message:*\n${original.content}`;
         }
 
-        await sock.sendMessage(ownerNumber, {
+        await notifyOwners(sock, {
             text,
             mentions: [deletedBy, sender]
         });
 
+        // Keep a copy in the gallery so it can be re-read later with .deleted
+        let galleryId = null;
+        try {
+            if (!original.mediaType && original.content) {
+                const saved = vault.saveText({
+                    type: 'deleted',
+                    text: original.content || `(${original.mediaType})`,
+                    sender,
+                    chat: original.group || sender,
+                    deletedBy
+                });
+                galleryId = saved.id;
+            }
+        } catch (e) {
+            console.error('vault saveText error:', e.message);
+        }
+
         // Media sending
         if (original.mediaType && fs.existsSync(original.mediaPath)) {
+            // Persist a copy in the gallery (survives the temp-file cleanup)
+            try {
+                const saved = vault.saveMedia({
+                    type: 'deleted',
+                    kind: original.mediaType,
+                    buffer: fs.readFileSync(original.mediaPath),
+                    mimetype: '',
+                    sender,
+                    chat: original.group || sender,
+                    caption: original.content || '',
+                    deletedBy
+                });
+                galleryId = saved.id;
+            } catch (e) {
+                console.error('vault saveMedia error:', e.message);
+            }
+
             const mediaOptions = {
-                caption: `*Deleted ${original.mediaType}*\nFrom: @${senderName}`,
+                caption: `*Deleted ${original.mediaType}*\nFrom: @${senderName}\n💾 Saved as #${galleryId || '?'}`,
                 mentions: [sender]
             };
 
             try {
                 switch (original.mediaType) {
                     case 'image':
-                        await sock.sendMessage(ownerNumber, {
+                        await notifyOwners(sock, {
                             image: { url: original.mediaPath },
                             ...mediaOptions
                         });
                         break;
                     case 'sticker':
-                        await sock.sendMessage(ownerNumber, {
+                        await notifyOwners(sock, {
                             sticker: { url: original.mediaPath },
                             ...mediaOptions
                         });
                         break;
                     case 'video':
-                        await sock.sendMessage(ownerNumber, {
+                        await notifyOwners(sock, {
                             video: { url: original.mediaPath },
                             ...mediaOptions
                         });
                         break;
                     case 'audio':
-                        await sock.sendMessage(ownerNumber, {
+                        await notifyOwners(sock, {
                             audio: { url: original.mediaPath },
                             mimetype: 'audio/mpeg',
                             ptt: false,
@@ -283,7 +318,7 @@ async function handleMessageRevocation(sock, revocationMessage) {
                         break;
                 }
             } catch (err) {
-                await sock.sendMessage(ownerNumber, {
+                await notifyOwners(sock, {
                     text: `⚠️ Error sending media: ${err.message}`
                 });
             }

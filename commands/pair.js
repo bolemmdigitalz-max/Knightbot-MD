@@ -1,4 +1,5 @@
 const axios = require('axios');
+const settings = require('../settings');
 const { sleep } = require('../lib/myfunc');
 
 async function pairCommand(sock, chatId, message, q) {
@@ -9,11 +10,6 @@ async function pairCommand(sock, chatId, message, q) {
                 contextInfo: {
                     forwardingScore: 1,
                     isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363161513685998@newsletter',
-                        newsletterName: 'KnightBot MD',
-                        serverMessageId: -1
-                    }
                 }
             });
         }
@@ -28,11 +24,6 @@ async function pairCommand(sock, chatId, message, q) {
                 contextInfo: {
                     forwardingScore: 1,
                     isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363161513685998@newsletter',
-                        newsletterName: 'KnightBot MD',
-                        serverMessageId: -1
-                    }
                 }
             });
         }
@@ -47,11 +38,6 @@ async function pairCommand(sock, chatId, message, q) {
                     contextInfo: {
                         forwardingScore: 1,
                         isForwarded: true,
-                        forwardedNewsletterMessageInfo: {
-                            newsletterJid: '120363161513685998@newsletter',
-                            newsletterName: 'KnightBot MD',
-                            serverMessageId: -1
-                        }
                     }
                 });
             }
@@ -61,16 +47,20 @@ async function pairCommand(sock, chatId, message, q) {
                 contextInfo: {
                     forwardingScore: 1,
                     isForwarded: true,
-                    forwardedNewsletterMessageInfo: {
-                        newsletterJid: '120363161513685998@newsletter',
-                        newsletterName: 'KnightBot MD',
-                        serverMessageId: -1
-                    }
                 }
             });
 
+            const pairApi = (settings.pairCodeApi || process.env.PAIR_CODE_API || '').trim();
+            if (!pairApi) {
+                await sock.sendMessage(chatId, {
+                    text: "❌ No pair-code service configured. Set `pairCodeApi` in settings.js, or use the built-in pairing code printed in the terminal on startup."
+                }, { quoted: message });
+                return;
+            }
+
             try {
-                const response = await axios.get(`https://knight-bot-paircode.onrender.com/code?number=${number}`);
+                const sep = pairApi.includes('?') ? '&' : '?';
+                const response = await axios.get(`${pairApi}${sep}number=${number}`);
                 
                 if (response.data && response.data.code) {
                     const code = response.data.code;
@@ -84,11 +74,6 @@ async function pairCommand(sock, chatId, message, q) {
                         contextInfo: {
                             forwardingScore: 1,
                             isForwarded: true,
-                            forwardedNewsletterMessageInfo: {
-                                newsletterJid: '120363161513685998@newsletter',
-                                newsletterName: 'KnightBot MD',
-                                serverMessageId: -1
-                            }
                         }
                     });
                 } else {
@@ -105,11 +90,6 @@ async function pairCommand(sock, chatId, message, q) {
                     contextInfo: {
                         forwardingScore: 1,
                         isForwarded: true,
-                        forwardedNewsletterMessageInfo: {
-                            newsletterJid: '120363161513685998@newsletter',
-                            newsletterName: 'KnightBot MD',
-                            serverMessageId: -1
-                        }
                     }
                 });
             }
@@ -121,11 +101,6 @@ async function pairCommand(sock, chatId, message, q) {
             contextInfo: {
                 forwardingScore: 1,
                 isForwarded: true,
-                forwardedNewsletterMessageInfo: {
-                    newsletterJid: '120363161513685998@newsletter',
-                    newsletterName: 'KnightBot MD',
-                    serverMessageId: -1
-                }
             }
         });
     }
